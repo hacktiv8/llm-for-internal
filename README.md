@@ -29,7 +29,7 @@ $ curl http://localhost:11434/api/generate -d '{
 ```shell
 $ git clone https://github.com/hacktiv8/llm-for-internal.git
 $ cd llm-for-internal
-$ git checkout 1-first-contact
+$ git checkout 2-instruction
 $ node --watch pico-jarvis.js
 $ open localhost:5000
 ```
@@ -43,4 +43,11 @@ or open `localhost:5000`.
 - Mona Lisa was painted by
 - The real name of Spiderman is
 - What is the official language of Indonesia?
-
+- Who wrote the Canon of Medicine?
+- Who is Elon Musk?
+- What is the native language of Mr. Spock?
+- Name Indonesia #1 tourist destination
+- Which US state starts with G?
+- What is the atomic number of Magnesium?
+- Is ramen typically eaten in Egypt?
+- Who directed the Dark Knight movie?

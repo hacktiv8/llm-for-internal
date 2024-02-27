@@ -25,6 +25,14 @@ async function llama(prompt) {
     return response.trim();
 }
 
+
+function createPrompt(input) {
+    return `
+    This is a conversation between User and Llama, a friendly chatbot. Llama is helpful, kind, honest, and never fails to answer any requests immediately, with precision, and concisely in 10 words or less.
+    User: ${input}
+    Llama:`
+}
+
 async function handler(request, response) {
     const { url } = request;
     console.log(`Handling ${url}...`);
@@ -38,7 +46,7 @@ async function handler(request, response) {
         const { search } = parsedUrl;
         const question = decodeURIComponent(search.substring(1));
         console.log('Waiting for Llama...');
-        const answer = await llama(question);
+        const answer = await llama(createPrompt(question));
         console.log('LLama answers:', answer);
         response.writeHead(200).end(answer);
     } else {
