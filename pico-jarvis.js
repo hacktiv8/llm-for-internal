@@ -9,7 +9,7 @@ async function llama(prompt) {
         'Content-Type': 'application/json'
     };
     const body = JSON.stringify({
-        model: 'orca-mini',
+        model: 'mistral-openorca',
         prompt: prompt,
         options: {
             num_predict: 200,
@@ -25,12 +25,41 @@ async function llama(prompt) {
     return response.trim();
 }
 
+const SYSTEM_MESSAGE = `You run in a process of Question, Thought, Action, Observation.
 
-function createPrompt(input) {
-    return `
-    This is a conversation between User and Llama, a friendly chatbot. Llama is helpful, kind, honest, and never fails to answer any requests immediately, with precision, and concisely in 10 words or less in Bahasa Indonesia no matter what.
-    User: ${input}
-    Llama:`
+Use Thought to describe your thoughts about the question you have been asked.
+Observation will be the result of running those actions.
+Finally at the end, state the Answer.
+
+Here are some sample sessions.
+
+Question: What is capital of france?
+Thought: This is about geography, I can recall the answer from my memory.
+Action: lookup: capital of France.
+Observation: Paris is the capital of France.
+Answer: The capital of France is Paris.
+
+Question: Who painted Mona Lisa?
+Thought: This is about general knowledge, I can recall the answer from my memory.
+Action: lookup: painter of Mona Lisa.
+Observation: Mona Lisa was painted by Leonardo da Vinci .
+Answer: Leonardo da Vinci painted Mona Lisa.
+
+Let's go!`;
+
+async function answer(text) {
+    const MARKER = 'Answer:';
+    const pos = text.lastIndexOf(MARKER);
+    if (pos < 0) return "?";
+    const answer = text.substr(pos + MARKER.length).trim();
+    return answer;
+}
+
+async function think(inquiry) {
+    const prompt = SYSTEM_MESSAGE + '\n\n' + inquiry;
+    const response = await llama(prompt);
+    console.log('Response:', response);
+    return answer(response);
 }
 
 async function handler(request, response) {
@@ -46,7 +75,7 @@ async function handler(request, response) {
         const { search } = parsedUrl;
         const question = decodeURIComponent(search.substring(1));
         console.log('Waiting for Llama...');
-        const answer = await llama(createPrompt(question));
+        const answer = await think(`Question: ${question}`);
         console.log('LLama answers:', answer);
         response.writeHead(200).end(answer);
     } else {

@@ -1,24 +1,12 @@
 # LLM For Internal
 
-## Deployment LLM via ollama
+## Change the model
 
-After the server ready, install ollama whit the following command:
+Download model via ollama
 
 ```shell
-server# curl -fsSL https://ollama.com/install.sh | sh
-
-# Stop the ollama service and run the following command so we can access it from anywhere:
-server# service ollama stop
-server# nohup OLLAMA_HOST=0.0.0.0:11434 ollama serve
-
-# Open another terminal session and download desired model:
-server# OLLAMA_HOST=0.0.0.0:11434 ollama pull orca-mini
+$ ollama pull mistral-openorca
 ```
-
-## Access online ollama
-
-Now we can access ollama from anywhere with ip address and port 11434.
-
 
 ## Example Questions
 
@@ -35,3 +23,14 @@ Now we can access ollama from anywhere with ip address and port 11434.
 - What is the atomic number of Magnesium?
 - Is ramen typically eaten in Egypt?
 - Who directed the Dark Knight movie?
+* Where do we find kangoroo?
+* Who is the father of Luke Skywalker?
+* In which country Mandarin is spoken?
+* What is the longest river in Latin America?
+* Who authored the special theory of relativity?
+* Which fictional metal is infused into Wolverine body?
+* Who sailed with the flagship Santa Maria?
+* Name the big desert close to Mongolia
+* Which is closer to Singapor: Vietnam or Australia?
+* Who is the fictional spy 007?
+* Which country is known for IKEA?
