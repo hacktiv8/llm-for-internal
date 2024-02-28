@@ -1,7 +1,7 @@
 const fs = require('fs');
 const http = require('http');
 
-const LLAMA_API_URL = process.env.LLAMA_API_URL || 'http://127.0.0.1:11434/api/generate';
+const LLAMA_API_URL = 'http://127.0.0.1:11434/api/generate';
 
 async function llama(prompt) {
     const method = 'POST';
@@ -28,7 +28,7 @@ async function llama(prompt) {
 
 function createPrompt(input) {
     return `
-    This is a conversation between User and Llama, a friendly chatbot. Llama is helpful, kind, honest, and never fails to answer any requests immediately, with precision, and concisely in 10 words or less.
+    This is a conversation between User and Llama, a friendly chatbot. Llama is helpful, kind, honest, and never fails to answer any requests immediately, with precision, and concisely in 10 words or less in Bahasa Indonesia no matter what.
     User: ${input}
     Llama:`
 }

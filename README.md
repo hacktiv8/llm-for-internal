@@ -1,40 +1,24 @@
 # LLM For Internal
 
-## Running LLM
+## Deployment LLM via ollama
 
-After install [ollama](https://ollama.com), you can run LLM with the following command:
-
-```
-$ ollama run orca-mini
->>> Can you speak Bahasa Indonesia?
-Yes, I can speak and understand Bahasa Indonesia.
-```
-
-### Running Ollama as a service
-
-```
-$ ollama serve
-```
-
-```
-$ curl http://localhost:11434/api/generate -d '{
-  "model": "orca-mini",
-  "prompt": "Can you speak Bahasa Indonesia?",
-  "stream": false
-}'
-```
-
-## Running the web interface
+After the server ready, install ollama whit the following command:
 
 ```shell
-$ git clone https://github.com/hacktiv8/llm-for-internal.git
-$ cd llm-for-internal
-$ git checkout 2-instruction
-$ node --watch pico-jarvis.js
-$ open localhost:5000
+server# curl -fsSL https://ollama.com/install.sh | sh
+
+# Stop the ollama service and run the following command so we can access it from anywhere:
+server# service ollama stop
+server# nohup OLLAMA_HOST=0.0.0.0:11434 ollama serve
+
+# Open another terminal session and download desired model:
+server# OLLAMA_HOST=0.0.0.0:11434 ollama pull orca-mini
 ```
 
-or open `localhost:5000`.
+## Access online ollama
+
+Now we can access ollama from anywhere with ip address and port 11434.
+
 
 ## Example Questions
 
