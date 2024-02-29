@@ -53,9 +53,7 @@ Question: Who painted Mona Lisa?
 Thought: This is about general knowledge, I can recall the answer from my memory.
 Action: lookup: painter of Mona Lisa.
 Observation: Mona Lisa was painted by Leonardo da Vinci .
-Answer: Leonardo da Vinci painted Mona Lisa.
-
-Let's go!`;
+Answer: Leonardo da Vinci painted Mona Lisa.`;
 
 async function exchange(from, to) {
     const url = `https://open.er-api.com/v6/latest/${from}`;
@@ -74,8 +72,23 @@ async function answer(text) {
     return answer;
 }
 
-async function reason(inquiry) {
-    const prompt = SYSTEM_MESSAGE + '\n\n' + inquiry;
+const HISTORY_MSG = "Before formulating a thought, consider the following conversation history.";
+
+function context(history) {
+    if (history.length > 0) {
+        const recents = history.slice(-3 * 2); // only last 3 Q&A
+        return `${HISTORY_MSG}\n\n${recents.join('\n')}`;
+    }
+
+    return "";
+}
+
+
+async function reason(history, inquiry) {
+    
+    const prompt = `${SYSTEM_MESSAGE}\n\n${context(history)}\n\n
+    Now let us go!\n\n${inquiry}`;
+
     const response = await llama(prompt);
     console.log(`---\n${response}\n---`);
 
@@ -89,7 +102,6 @@ async function reason(inquiry) {
         
         conclusion = await llama(finalPrompt(inquiry, action.result));
     }
-
 
     return conclusion;
 }
@@ -129,6 +141,8 @@ Observation: ${observation}.
 Thought: Now I have the answer.
 Answer:`;
 
+const history = [];
+
 async function handler(request, response) {
     const { url } = request;
     console.log(`Handling ${url}...`);
@@ -142,9 +156,11 @@ async function handler(request, response) {
         const { search } = parsedUrl;
         const question = decodeURIComponent(search.substring(1));
         console.log('Waiting for Llama...');
-        const answer = await reason(`Question: ${question}`);
+        const inquiry = `Question: ${question}`;
+        const answer = await reason(history, inquiry);
         console.log('LLama answers:', answer);
         response.writeHead(200).end(answer);
+        history.push(inquiry)
     } else {
         console.error(`${url} is 404!`)
         response.writeHead(404);

@@ -3,12 +3,12 @@
 ## External function
 
 ```shell
-$ git checkout 5-function
+$ git checkout 6-conversation
 ```
 
 
 ## Example Questions
 
-- What is the exchange rate from USD to EUR?
-- What is the exchange rate from USD to IDR?
-- I had 500 USD. How much I got in the capital of Indonesia?
+- Which planet is the largest?
+- How far is it?
+- How about in miles?
