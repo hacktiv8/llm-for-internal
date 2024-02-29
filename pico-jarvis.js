@@ -81,15 +81,15 @@ async function reason(inquiry) {
 
     let conclusion = '';
 
-    try {
-        const { result } = await act(response);
-        console.log("REASON result: ", result);
-        if (!result) return answer(response);
-        conclusion = await llama(finalPrompt(inquiry, result));
-    } catch (error) {
-        console.error(error.toString());
-        conclusion = error.toString();
+    const action = await act(response);
+    if (action == null) {
+        return answer(response);
+    } else {
+        console.log("REASON result: ", action.result);
+        
+        conclusion = await llama(finalPrompt(inquiry, action.result));
     }
+
 
     return conclusion;
 }
@@ -121,6 +121,7 @@ async function act(text) {
     }
 
     console.log("Not recognized action", { name, args });
+    return null;
 }
 
 const finalPrompt = (inquiry, observation) => `${inquiry}
