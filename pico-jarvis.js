@@ -29,7 +29,11 @@ const SYSTEM_MESSAGE = `You run in a process of Question, Thought, Action, Obser
 
 Use Thought to describe your thoughts about the question you have been asked.
 Observation will be the result of running those actions.
-Finally at the end, state the Answer.
+
+If you can not answer the question from your memory, use Action to run one of these actions available to you:
+
+- exchange: from to
+- lookup: terms
 
 Here are some sample sessions.
 
@@ -39,6 +43,12 @@ Action: lookup: capital of France.
 Observation: Paris is the capital of France.
 Answer: The capital of France is Paris.
 
+Question: What is the exchange rate from USD to EUR?
+Thought: This is about currency exchange rates, I need to check the current rate.
+Action: exchange: USD EUR
+Observation: 0.8276 EUR for 1 USD.
+Answer: The current exchange rate is 0.8276 EUR for 1 USD.
+
 Question: Who painted Mona Lisa?
 Thought: This is about general knowledge, I can recall the answer from my memory.
 Action: lookup: painter of Mona Lisa.
@@ -46,6 +56,15 @@ Observation: Mona Lisa was painted by Leonardo da Vinci .
 Answer: Leonardo da Vinci painted Mona Lisa.
 
 Let's go!`;
+
+async function exchange(from, to) {
+    const url = `https://open.er-api.com/v6/latest/${from}`;
+    console.log('Fetching', url);
+    const response = await fetch(url);
+    const data = await response.json();
+    const rate = data.rates[to];
+    return `${rate} ${to} for 1 ${from}. Last update on ${data.time_last_update_utc}`;
+}
 
 async function answer(text) {
     const MARKER = 'Answer:';
@@ -55,12 +74,59 @@ async function answer(text) {
     return answer;
 }
 
-async function think(inquiry) {
+async function reason(inquiry) {
     const prompt = SYSTEM_MESSAGE + '\n\n' + inquiry;
     const response = await llama(prompt);
-    console.log('Response:', response);
-    return answer(response);
+    console.log(`---\n${response}\n---`);
+
+    let conclusion = '';
+
+    try {
+        const { result } = await act(response);
+        console.log("REASON result: ", result);
+        if (!result) return answer(response);
+        conclusion = await llama(finalPrompt(inquiry, result));
+    } catch (error) {
+        console.error(error.toString());
+        conclusion = error.toString();
+    }
+
+    return conclusion;
 }
+
+async function act(text) {
+    const MARKER = "Action:";
+    const pos = text.lastIndexOf(MARKER);
+    if (pos < 0) return null;
+
+    const subtext = text.substr(pos) + "\n";
+    const matches = /Action:\s*(.*?)\n/.exec(subtext);
+    const action = matches[1];
+    if (!action) return null;
+
+    const SEPARATOR = ":";
+    const sep = action.indexOf(SEPARATOR);
+    if (sep < 0) return null;
+
+    const name = action.substring(0, sep);
+    const args = action.substring(sep + 1).trim().split(" ");
+
+    if (name === "lookup") return null;
+
+    if (name === "exchange") {
+        
+        const result = await exchange(args[0].trim(), args[1].trim());
+        console.log("ACT exchange", { args, result });
+        return { action, name, args, result };
+    }
+
+    console.log("Not recognized action", { name, args });
+}
+
+const finalPrompt = (inquiry, observation) => `${inquiry}
+Observation: ${observation}.
+Thought: Now I have the answer.
+Answer:`;
 
 async function handler(request, response) {
     const { url } = request;
@@ -75,7 +141,7 @@ async function handler(request, response) {
         const { search } = parsedUrl;
         const question = decodeURIComponent(search.substring(1));
         console.log('Waiting for Llama...');
-        const answer = await think(`Question: ${question}`);
+        const answer = await reason(`Question: ${question}`);
         console.log('LLama answers:', answer);
         response.writeHead(200).end(answer);
     } else {
