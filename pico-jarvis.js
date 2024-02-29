@@ -63,7 +63,7 @@ async function exchange(from, to) {
     const response = await fetch(url);
     const data = await response.json();
     const rate = data.rates[to];
-    return `${rate} ${to} for 1 ${from}. Last update on ${data.time_last_update_utc}`;
+    return `As per ${data.time_last_update_utc}, 1 ${from} equal to ${Math.ceil(rate)} ${from}.`;
 }
 
 async function answer(text) {
