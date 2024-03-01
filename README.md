@@ -9,6 +9,6 @@ $ git checkout 6-conversation
 
 ## Example Questions
 
-- Which planet is the largest?
-- How far is it?
-- How about in miles?
+- What is the capital of Indonesia?
+- What is the best food there?
+- Is that spicy?
