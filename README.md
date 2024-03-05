@@ -1,14 +1,19 @@
 # LLM For Internal
 
-## External function
+## Conversation Understanding
 
-```shell
+```text
 $ git checkout 6-conversation
 ```
 
 
-## Example Questions
+## Set of Questions
 
-- What is the capital of Indonesia?
-- What is the best food there?
-- Is that spicy?
+- Questions about Jakarta
+  - What is the capital of Indonesia?
+  - What is the best food there?
+  - Is that spicy?
+
+- Questions about yourself
+  - Hi, my name is Riza. I will ask you some question
+  - Who am I?

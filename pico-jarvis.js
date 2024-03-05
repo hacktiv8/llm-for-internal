@@ -83,7 +83,6 @@ function context(history) {
     return "";
 }
 
-
 async function reason(history, inquiry) {
     
     const prompt = `${SYSTEM_MESSAGE}\n\n${context(history)}\n\n
@@ -95,8 +94,8 @@ async function reason(history, inquiry) {
     let conclusion = '';
 
     const action = await act(response);
-    if (action == null) {
-        return answer(response);
+    if (action === null) {
+        return answer(`Answer: ${response}`);
     } else {
         console.log("REASON result: ", action.result);
         
