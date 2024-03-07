@@ -1,0 +1,17 @@
+{
+  "name": "llm-for-internal",
+  "version": "1.0.0",
+  "main": "pico-jarvis.js",
+  "scripts": {
+    "start": "node --watch pico-jarvis.js"
+  },
+  "devDependencies": {},
+  "dependencies": {
+    "@xenova/transformers": "2.15.1",
+    "pdf-text-reader": "4.0.1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module"
+}

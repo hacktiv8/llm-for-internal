@@ -3,17 +3,9 @@
 ## Conversation Understanding
 
 ```text
-$ git checkout 6-conversation
+$ git checkout 7-vectorize
 ```
 
+## Questions
 
-## Set of Questions
-
-- Questions about Jakarta
-  - What is the capital of Indonesia?
-  - What is the best food there?
-  - Is that spicy?
-
-- Questions about yourself
-  - Hi, my name is Riza. I will ask you some question
-  - Who am I?
+- Please tell me how much revenue Tesla made in 2022?
