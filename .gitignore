@@ -62,3 +62,4 @@ typings/
 
 .envrc
 shell.nix
+.DS_Store
