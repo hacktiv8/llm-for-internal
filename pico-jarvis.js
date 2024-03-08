@@ -104,13 +104,9 @@ const ingest = async (url) => {
             const ch2 = text[i + 1];
             if (isPunctuator(ch1) && isWhiteSpace(ch2)) {
                 str += ch1;
-                if (str.slice(-5) !== 'bill.') {
-                    const text = str.trim();
-                    chunks.push({ offset, text });
-                    str = '';
-                    offset = i + 1;
-                    continue;
-                }
+                const text = str.trim();
+                chunks.push({ offset, text });
+                str = '';
             }
             str += ch1;
         }
