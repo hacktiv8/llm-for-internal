@@ -24,11 +24,6 @@ const EMBEDDING_MODEL = "Xenova/paraphrase-MiniLM-L3-v2";
     process.exit(0);
   }
 
-  const first = args[0];
-  const second = args[1];
-  console.log("Comparing...");
-  console.log(" ", first);
-  console.log(" ", second);
-  console.log("\n");
-  console.log(Math.abs(cos_sim(db[first], db[second])));
+  console.log(`Comparing...\n\t${args[0]}\n\t${args[1]}\n`);
+  console.log(Math.abs(cos_sim(db[args[0]], db[args[1]])));
 })();

@@ -1,20 +1,20 @@
-import fs from "fs";
-import http from "http";
-import { readPdfPages } from "pdf-text-reader";
+import fs from 'fs';
+import http from 'http';
+import { readPdfPages } from 'pdf-text-reader';
 
-const LLAMA_API_URL = "http://127.0.0.1:11434/api/generate";
-const FEATURE_MODEL = "Xenova/all-MiniLM-L6-v2";
+const LLAMA_API_URL = process.env.LLAMA_API_URL || 'http://127.0.0.1:11434/api/generate';
 
-async function llama(prompt, attempt = 1) {
-    const method = "POST";
+const FEATURE_MODEL = 'Xenova/all-MiniLM-L6-v2';
+
+const llama = async (prompt, attempt = 1) => {
+    const method = 'POST';
     const headers = {
-        "Content-Type": "application/json"
+        'Content-Type': 'application/json'
     };
-    const stop = ["Llama:", "User:", "Question:"];
-
+    const stop = ['Llama:', 'User:', 'Question:', '<|im_end|>'];
     const body = JSON.stringify({
         model: "mistral-openorca",
-        prompt: prompt,
+        prompt,
         options: {
             num_predict: 200,
             temperature: 0,
@@ -25,22 +25,20 @@ async function llama(prompt, attempt = 1) {
     });
     const request = { method, headers, body };
     const res = await fetch(LLAMA_API_URL, request);
-
     if (res.ok) {
-        const { response } = await res.json();
+        const data = await res.json();
+        const { response } = data;
         return response.trim();
     }
-
     if (attempt > 3) {
-        const message = "LLM API server does not response properly!";
+        const message = 'LLM API server does not respond properly!';
         console.error(message);
         return message;
     }
-
-    console.error(`LLM API call failure:${response.status}, retrying...`);
-
-    return await(llama(prompt, attempt + 1));
+    console.error('LLM API call failure:', response.status, 'Retrying...');
+    return await llama(prompt, attempt + 1);
 }
+
 
 const REASON_PROMPT = `You run in a process of Question, Thought, Action, Observation.
 
@@ -73,8 +71,7 @@ Answer: The current exchange rate is 0.8276 EUR for 1 USD.
 
 Now it is your turn to answer the following!
 
-Question: {{QUESTION}}
-`;
+Question: {{QUESTION}}`;
 
 async function exchange(from, to) {
     const url = `https://open.er-api.com/v6/latest/${from}`;
@@ -85,26 +82,97 @@ async function exchange(from, to) {
     return `As per ${data.time_last_update_utc}, 1 ${from} equal to ${Math.ceil(rate)} ${from}.`;
 }
 
-function parse(text) {
+const ingest = async (url) => {
+
+    const sequence = (N) => Array.from({ length: N }, (_, i) => i);
+
+    const paginate = (entries, pagination) => entries.map(entry => {
+        const { offset } = entry;
+        const page = pagination.findIndex(i => i > offset);
+        return { page, ...entry };
+    });
+
+    const isPunctuator = (ch) => (ch === '.') || (ch === '!') || (ch === '?');
+    const isWhiteSpace = (ch) => (ch === ' ') || (ch === '\n') || (ch === '\t');
+
+    const split = (text) => {
+        const chunks = [];
+        let str = '';
+        let offset = 0;
+        for (let i = 0; i < text.length; ++i) {
+            const ch1 = text[i];
+            const ch2 = text[i + 1];
+            if (isPunctuator(ch1) && isWhiteSpace(ch2)) {
+                str += ch1;
+                if (str.slice(-5) !== 'bill.') {
+                    const text = str.trim();
+                    chunks.push({ offset, text });
+                    str = '';
+                    offset = i + 1;
+                    continue;
+                }
+            }
+            str += ch1;
+        }
+        if (str.length > 0) {
+            chunks.push({ offset, text: str.trim() });
+        }
+        return chunks;
+    }
+
+    const vectorize = async (text) => {
+        const transformers = await import('@xenova/transformers');
+        const { pipeline } = transformers;
+        const extractor = await pipeline('feature-extraction', FEATURE_MODEL, { quantized: true });
+
+        const chunks = split(text);
+
+        const result = [];
+        for (let index = 0; index < chunks.length; ++index) {
+            const { offset } = chunks[index];
+            const block = chunks.slice(index, index + 3).map(({ text }) => text).join(' ');
+            const sentence = block;
+            const output = await extractor([sentence], { pooling: 'mean', normalize: true });
+            const vector = output[0].data;
+            result.push({ index, offset, sentence, vector });
+        }
+        return result;
+    }
+
+
+    console.log('INGEST:');
+    const input = await readPdfPages({ url });
+    console.log(' url:', url);
+    const pages = input.map((page, number) => { return { number, content: page.lines.join(' ') } });
+    console.log(' page count:', pages.length);
+    const pagination = sequence(pages.length).map(k => pages.slice(0, k + 1).reduce((loc, page) => loc + page.content.length, 0))
+    const text = pages.map(page => page.content).join(' ');
+    const start = Date.now();
+    let document = paginate(await vectorize(text), pagination);
+    const elapsed = Date.now() - start;
+    console.log(' vectorization time:', elapsed, 'ms');
+    return document;
+}
+
+const parse = (text) => {
     const parts = {};
-    const MARKERS = ["Answer", "Observation", "Action", "Thought"];
+    const MARKERS = ['Answer', 'Observation', 'Action', 'Thought'];
     const ANCHOR = MARKERS.slice().pop();
-    const start = text.lastIndexOf(`${ANCHOR}:`);
+    const start = text.lastIndexOf(ANCHOR + ':');
     if (start >= 0) {
-        let str = text.substr(start)
-        for (let i = 0; i < MARKERS.length; i++) {
+        let str = text.substr(start);
+        for (let i = 0; i < MARKERS.length; ++i) {
             const marker = MARKERS[i];
-            const pos = str.lastIndexOf(`${marker}:`);
+            const pos = str.lastIndexOf(marker + ':');
             if (pos >= 0) {
                 const substr = str.substr(pos + marker.length + 1).trim();
-                const value = substr.split("\n").shift();
-                str = str.slice(0, pos);   
+                const value = substr.split('\n').shift();
+                str = str.slice(0, pos);
                 const key = marker.toLowerCase();
                 parts[key] = value;
             }
         }
     }
-
     return parts;
 }
 
@@ -125,306 +193,185 @@ Question: {{QUESTION}}
 Thought: Let us the above reference document to find the answer.
 Answer:`;
 
-async function answer(kind, passage, question) {
-    console.log("ANSWER:");
-    console.log(" question:", question);
-    console.log("------------- passages -------------");
-    console.log(passage);
-    console.log("-------------");
-
-    const input = LOOKUP_PROMPT
-    .replaceAll("{{KIND}}", kind)
-    .replaceAll("{{PASSAGES}}", passage)
-    .replaceAll("{{QUESTION}}", question);
+const answer = async (kind, passages, question) => {
+    console.log('ANSWER:');
+    console.log(' question:', question);
+    console.log('------- passages -------');
+    console.log(passages);
+    console.log('-------');
+    const input = LOOKUP_PROMPT.
+        replaceAll('{{KIND}}', kind).
+        replace('{{PASSAGES}}', passages).
+        replace('{{QUESTION}}', question);
     const output = await llama(input);
     const response = parse(input + output);
-    console.log(" answer:", response.answer);
+    console.log(' answer:', response.answer);
     return response.answer;
 }
 
-async function lookup(document, question, hint) {
-    
-    async function encode(sentence) {
-        const transformers = await import("@xenova/transformers");
-        const { pipeline } = transformers;
-        const extractor = await pipeline("feature-extraction", FEATURE_MODEL, { quantized: true });
+const lookup = async (document, question, hint) => {
 
-        const output = await extractor([sentence], { pooling: "mean", normalize: true });
-        return output[0].data;
+    const encode = async (sentence) => {
+        const transformers = await import('@xenova/transformers');
+        const { pipeline } = transformers;
+        const extractor = await pipeline('feature-extraction', FEATURE_MODEL, { quantized: true });
+
+        const output = await extractor([sentence], { pooling: 'mean', normalize: true });
+        const vector = output[0].data;
+        return vector;
     }
-    async function search(q, document, top_k = 3) {
-        const { cos_sim } = await import("@xenova/transformers");
+
+    const search = async (q, document, top_k = 3) => {
+        const { cos_sim } = await import('@xenova/transformers');
 
         const vector = await encode(q);
-        const matches = document.map(function (entry) {
+        const matches = document.map((entry) => {
             const score = cos_sim(vector, entry.vector);
+            // console.log(`Line ${entry.index + 1} ${Math.round(100 * score)}%: ${entry.sentence}`);
             return { score, ...entry };
         });
 
-        const relevants = matches.sort(function (d1, d2) {
-            return d2.score - d1.score;
-        }).slice(0, top_k);
+        const relevants = matches.sort((d1, d2) => d2.score - d1.score).slice(0, top_k);
+        relevants.forEach(match => {
+            const { index, offset, sentence, score } = match;
+            // console.log(`  Line ${index + 1} @${offset}, match ${Math.round(100 * score)}%: ${sentence}`)
+        });
 
         return relevants;
-        
     }
 
-    function ascending(x, y) {
-        return x -y;
-    }
-
-    function dedupe(numbers) {
-        return [...new Set(numbers)];
-    }
+    const ascending = (x, y) => x - y;
+    const dedupe = (numbers) => [...new Set(numbers)];
 
     const MIN_SCORE = 0.4;
 
     if (document.length === 0) {
-        throw new Error("Document is not indexed!");
+        throw new Error('Document is not indexed!');
     }
 
-    console.log("LOOKUP:");
-    console.log(" question:", question);
-    console.log(" hint:", hint);
+    console.log('LOOKUP:');
+    console.log(' question:', question);
+    console.log(' hint:', hint);
 
-    const candidates = await search(`${question} ${hint}`, document);
+    const candidates = await search(question + ' ' + hint, document);
     const best = candidates.slice(0, 1).shift();
-    console.log(" best score:", best.score);
+    console.log(' best score:', best.score);
     if (best.score < MIN_SCORE) {
-        const FROM_MEMORY = "From my memory.";
+        const FROM_MEMORY = 'From my memory.';
         return { result: hint, source: FROM_MEMORY, reference: FROM_MEMORY };
     }
 
-    const indexes = dedupe(candidates.map(function (r) {
-        return r.index;
-    })).sort(ascending);
-
-    const relevants = document.filter(function ({ index }) {
-        return indexes.includes(index);
-    });
-
-    const passages = relevants.map(function ({ sentence }) {
-        return sentence;
-    }).join(" ");
-
-    const result = await answer("reference document", passages, question);
+    const indexes = dedupe(candidates.map(r => r.index)).sort(ascending);
+    const relevants = document.filter(({ index }) => indexes.includes(index));
+    const passages = relevants.map(({ sentence }) => sentence).join(' ');
+    const result = await answer('reference document', passages, question);
 
     const refs = await search(result || hint, relevants);
     const top = refs.slice(0, 1).pop();
-    source = `Best source (page ${top.page + 1}, score ${Math.round(top.score * 100)}%): ${top.sentence}`;
-    console.log(" source:", source);
+    let source = `Best source (page ${top.page + 1}, score ${Math.round(top.score * 100)}%):\n${top.sentence}`;
+    console.log(' source:', source);
 
-    return { result, source, reference: passages}
-
+    return { result, source, reference: passages };
 }
 
-
-async function reason(document, history, question) {
-    function capitalize(str) {
-        return str[0].toUpperCase() + str.slice(1);
-    }
-    function flatten(parts) {
-        return Object.keys(parts).filter(function (key) {
-            return parts[key];
-        }).map(function (key) {
-            return `${capitalize(key)}: ${parts[key]}`;
-        }).join("\n");
-    }
-
-    const HISTORY_MSG = "Before formulating a thought, consider the following conversation history.";
-
-    function context(history) {
-        if (history.length > 0) {
-            return `${HISTORY_MSG}\n\n${history.map(flatten).join("\n")}`;
-        }
-    
-        return "";
-    }
-
-    console.log("REASON:");
-    console.log(" question:", question);
-
-    const prompt = REASON_PROMPT.replace("{{CONTEXT}}", context(history)).replace("{{QUESTION}}", question);
-    const response = await llama(prompt);
-    const { thought, action, observation, answer } = parse(prompt + response);
-    console.log(` thought:${thought}`);
-    console.log(` action:${action}`);
-    console.log(` observation:${observation}`);
-    console.log(` intermediate answer:${answer}`);
-
-    const { result, source, reference } = await act(document, question, action ? action : "lookup: " + question, observation);
-    return { thought, action, observation, answer: result, source, reference };
-    
-}
-
-async function act(document, question, action, observation) {
-    const sep = action.indexOf(":");
+const act = async (document, question, action, observation) => {
+    const sep = action.indexOf(':');
     const name = action.substring(0, sep);
     const arg = action.substring(sep + 1).trim();
-    console.log(`------------- NAME: ${name} -------------------`);
 
-    if (name === "lookup") {
+    if (name === 'lookup') {
         const { result, source, reference } = await lookup(document, question, observation);
         return { result, source, reference };
     }
 
-    if (name === "exchange") {
-        const response = await exchange(...arg.split(" "));
-        const { summary } = result;
-        const result = await answer("exchange rate", summary, question);
-        const reference = `Exchange rate API: ${JSON.stringify(response)}`;
-        return { result, source: summary, reference };
-    }
-
     // fallback to a manual lookup
-    console.error("Not recognized action", name, arg);
-    return await act(document, question, "lookup: " + question, observation);
-}
-
-async function ingest(url) {
-
-    function sequence(N) {
-        return Array.from({ length: N }, (_, i) => i + 1);
-    }
-    function paginate(entries, pagination) {
-        return entries.map(function (entry) {
-            const { offset } = entry;
-            const page = pagination.findIndex(function (i) {
-                return i > offset;
-            });
-            return { page, ...entry }
-        });
-    }
-
-    function isPunctuator(ch) {
-        return ch === "." || ch === "?" || ch === "!";
-    }
-
-    function isWhitespace(ch) {
-        return ch === " " || ch === "\t" || ch === "\n";
-    }
-
-    function split(text) {
-        const chunks = [];
-        let str = "";
-        let offset = 0;
-
-        for (let i = 0; i < text.length; i++) {
-            const ch1 = text[i];
-            const ch2 = text[i + 1];
-            if (isPunctuator(ch1) && isWhitespace(ch2)) {
-                str += ch1;
-            }
-            str += ch1;
-        }
-
-        if (str.length > 0) {
-            chunks.push({ offset, text: str.trim() });
-        }
-        return chunks;
-    }
-
-    async function vectorize(text) {
-        const transformers = await import("@xenova/transformers");
-        const { pipeline } = transformers;
-        const extractor = await pipeline("feature-extraction", FEATURE_MODEL, { quantized: true });
-
-        const chunks = split(text);
-
-        const result = [];
-        for (let index = 0; index < chunks.length; index++) {
-            const { offset } = chunks[index];
-            const sentence = chunks.slice(index, index + 3).map(function (chunk) {
-                return chunk.text;
-            }).join(" ");
-            const ouutput = await extractor([sentence], { pooling: "mean", normalize: true });
-            const vector = ouutput[0].data;
-            result.push({ index, offset, sentence, vector });
-        }
-        return result;
-    }
-
-    console.log("INGEST:");
-    const input = await readPdfPages({ url });
-    console.log(` url:${url}`);
-    const pages = input.map(function (page, number) {
-        return { number, content: page.lines.join(" ") };
-    });
-    console.log(` page count:${pages.length}`);
-    const pagination = sequence(pages.length).map(function (k) {
-        return pages.slice(0, k + 1).reduce(function (loc, page) {
-            return loc + page.content.length;
-        }, 0);
-    });
-    const text = pages.map(function (page) {
-        return page.content;
-    }).join(" ");
-    const start = Date.now();
-    const vectorized = await vectorize(text);
-    const document = paginate(vectorized, pagination);
-    const elapsed = Date.now() - start;
-    console.log(` vectorization time:${elapsed}ms`);
-    return document;
+    console.error('Not recognized action', name, arg);
+    return await act(document, question, 'lookup: ' + question, observation);
 }
 
 
-(async function() {
-    const document = await ingest("./document.pdf");
+const reason = async (document, history, question) => {
+
+    const capitalize = (str) => str[0].toUpperCase() + str.slice(1);
+    const flatten = (parts) => Object.keys(parts).filter(k => parts[k]).map(k => `${capitalize(k)}: ${parts[k]}`).join('\n');
+
+    const HISTORY_MSG = 'Before formulating a thought, consider the following conversation history.';
+    const context = (history) => (history.length > 0) ? HISTORY_MSG + '\n\n' + history.map(flatten).join('\n') : '';
+
+    console.log('REASON:');
+    console.log(' question:', question);
+
+    const prompt = REASON_PROMPT.replace('{{CONTEXT}}', context(history)).replace('{{QUESTION}}', question);
+    const response = await llama(prompt);
+    const steps = parse(prompt + response);
+    const { thought, action, observation } = steps;
+    console.log(' thought:', thought);
+    console.log(' action:', action);
+    console.log(' observation:', observation);
+    console.log(' intermediate answer:', steps.answer);
+
+    const { result, source, reference } = await act(document, question, action ? action : 'lookup: ' + question, observation);
+    return { thought, action, observation, answer: result, source, reference };
+}
+
+(async () => {
+    const document = await ingest('./document.pdf');
 
     let state = {
         history: [],
-        source: '',
-        reference: ''
+        source: 'Dunno',
+        reference: 'Nothing yet'
     };
 
-    function command(key, response) {
+    const command = (key, response) => {
         const value = state[key.substring(1)];
-        if (value && typeof value === "string") {
+        if (value && typeof value === 'string') {
             response.writeHead(200).end(value);
             return true;
         }
         return false;
     }
 
-    const server = http.createServer(async function(req, res) {
-        const { url } = req;
-        if (url === "/health") {
-            res.writeHead(200).end("OK");    
-        } else if (url === "/" || url === "/index.html") {
-            res.writeHead(200, { "Content-Type": "text/html" });
-            res.end(fs.readFileSync("./index.html"));
-        } else if (url.startsWith("/chat")) {
-            const parsedUrl = new URL(`http://localhost${url}`);
+    const server = http.createServer(async (request, response) => {
+        const { url } = request;
+        if (url === '/health') {
+            response.writeHead(200).end('OK');
+        } else if (url === '/' || url === '/index.html') {
+            response.writeHead(200, { 'Content-Type': 'text/html' });
+            response.end(fs.readFileSync('./index.html'));
+        } else if (url.startsWith('/chat')) {
+            const parsedUrl = new URL(`http://localhost/${url}`);
             const { search } = parsedUrl;
             const question = decodeURIComponent(search.substring(1));
-            if (question === "!reset") {
+            if (question === '!reset') {
                 state.history.length = 0;
-                res.writeHead(200).end("Multi-turn conversation is reset.");
+                response.writeHead(200).end('Multi-turn conversation is reset.');
                 return;
             }
-            if (command(question, res)) return;
+            if (command(question, response)) {
+                return;
+            }
             console.log();
             const start = Date.now();
             const { thought, action, observation, answer, source, reference } = await reason(document, state.history, question);
             const elapsed = Date.now() - start;
             state.source = source;
             state.reference = reference;
-            res.writeHead(200).end(answer);
-            console.log(`Responded in ${elapsed}ms`);
+            response.writeHead(200).end(answer);
+            console.log('Responded in', elapsed, 'ms');
             state.history.push({ question, thought, action, observation, answer });
             while (state.history.length > 3) {
                 state.history.shift();
             }
         } else {
-            console.error(`${url} is 404!`);
-            res.writeHead(404);
-            res.end();
+            console.error(`${url} is 404!`)
+            response.writeHead(404);
+            response.end();
         }
-        
     });
 
     const port = process.env.PORT || 5000;
-    console.log("Server:");
-    console.log(" port:", port);
+    console.log('SERVER:');
+    console.log(' port:', port);
     server.listen(port);
 })();

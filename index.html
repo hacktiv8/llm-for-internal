@@ -48,7 +48,7 @@
                 }
             }
 
-            function ask(question) {
+            function ask(question, completed) {
                 message('human', question);
                 $('prompt').blur();
                 const url = '/chat?' + encodeURIComponent(question);
@@ -61,6 +61,7 @@
                     console.log('Answer:', answer);
                     message('assistant', answer);
                     focusInput();
+                    completed && completed(answer);
                 }).catch(error => {
                     message('panic', error);
                 });

@@ -1,4 +1,4 @@
-const { readPdfPages } = require("pdf-text-reader");
+import { readPdfPages } from "pdf-text-reader";
 
 const FEATURE_MODEL = 'Xenova/paraphrase-MiniLM-L3-v2';
 const TOP_K = 3;
@@ -44,7 +44,7 @@ async function vectorize(text) {
 
   const chunks = split(text);
 
-  start = Date.now();
+  const start = Date.now();
   let result = [];
 
   for (let index =0; index < chunks.length; index++) {
