@@ -311,7 +311,7 @@ async function reason (document, history, question) {
 }
 
 (async () => {
-    const document = await ingest('./document.pdf');
+    const document = await ingest('./Banking Product Example.pdf');
 
     let state = {
         history: [],
