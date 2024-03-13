@@ -6,7 +6,7 @@ const LLAMA_API_URL = process.env.LLAMA_API_URL || 'http://127.0.0.1:11434/api/g
 
 const FEATURE_MODEL = 'Xenova/all-MiniLM-L6-v2';
 
-const llama = async (prompt, attempt = 1) => {
+async function llama (prompt, attempt = 1) {
     const method = 'POST';
     const headers = {
         'Content-Type': 'application/json'
@@ -82,7 +82,7 @@ async function exchange(from, to) {
     return `As per ${data.time_last_update_utc}, 1 ${from} equal to ${Math.ceil(rate)} ${from}.`;
 }
 
-const ingest = async (url) => {
+async function ingest (url) {
 
     const sequence = (N) => Array.from({ length: N }, (_, i) => i);
 
@@ -150,7 +150,7 @@ const ingest = async (url) => {
     return document;
 }
 
-const parse = (text) => {
+function parse (text) {
     const parts = {};
     const MARKERS = ['Answer', 'Observation', 'Action', 'Thought'];
     const ANCHOR = MARKERS.slice().pop();
@@ -189,7 +189,7 @@ Question: {{QUESTION}}
 Thought: Let us the above reference document to find the answer.
 Answer:`;
 
-const answer = async (kind, passages, question) => {
+async function answer (kind, passages, question) {
     console.log('ANSWER:');
     console.log(' question:', question);
     console.log('------- passages -------');
@@ -205,7 +205,7 @@ const answer = async (kind, passages, question) => {
     return response.answer;
 }
 
-const lookup = async (document, question, hint) => {
+async function lookup (document, question, hint) {
 
     const encode = async (sentence) => {
         const transformers = await import('@xenova/transformers');
@@ -270,7 +270,7 @@ const lookup = async (document, question, hint) => {
     return { result, source, reference: passages };
 }
 
-const act = async (document, question, action, observation) => {
+async function act (document, question, action, observation) {
     const sep = action.indexOf(':');
     const name = action.substring(0, sep);
     const arg = action.substring(sep + 1).trim();
@@ -286,7 +286,7 @@ const act = async (document, question, action, observation) => {
 }
 
 
-const reason = async (document, history, question) => {
+async function reason (document, history, question) {
 
     const capitalize = (str) => str[0].toUpperCase() + str.slice(1);
     const flatten = (parts) => Object.keys(parts).filter(k => parts[k]).map(k => `${capitalize(k)}: ${parts[k]}`).join('\n');
