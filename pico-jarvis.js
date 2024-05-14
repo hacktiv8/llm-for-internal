@@ -1,16 +1,17 @@
-const fs = require('fs');
-const http = require('http');
+import http from 'http';
+import fs from 'fs';
 
-const LLAMA_API_URL = process.env.LLAMA_API_URL || 'http://127.0.0.1:11434/api/generate';
+const LLAMA_API_URL = process.env.LLAMA_API_URL || 'http://18.143.138.212:11434/api/generate';
 
 async function llama(prompt) {
     const method = 'POST';
     const headers = {
         'Content-Type': 'application/json'
     };
-    const body = JSON.stringify({
+
+    const body = JSON.stringify({ 
         model: 'orca-mini',
-        prompt: prompt,
+        prompt,
         options: {
             num_predict: 200,
             temperature: 0,
@@ -18,42 +19,42 @@ async function llama(prompt) {
         },
         stream: false
     });
+
     const request = { method, headers, body };
     const res = await fetch(LLAMA_API_URL, request);
-    const { response } = await res.json();
-    
-    return response.trim();
+    try {
+        console.log(res);
+        const { response } = await res.json();
+        console.log(response);
+        return response;
+    } catch(error) {
+        console.error(error);
+    }
+
 }
 
+async function handler(req, res) {
 
-function createPrompt(input) {
-    return `
-    This is a conversation between User and Llama, a friendly chatbot. Llama is helpful, kind, honest, and never fails to answer any requests immediately, with precision, and concisely in 10 words or less.
-    User: ${input}
-    Llama:`
-}
+    const { url } = req;
+    console.log(req.url);
 
-async function handler(request, response) {
-    const { url } = request;
-    console.log(`Handling ${url}...`);
-    if (url === '/health') {
-        response.writeHead(200).end('OK');
-    } else if (url === '/' || url === '/index.html') {
-        response.writeHead(200, { 'Content-Type': 'text/html' });
-        response.end(fs.readFileSync('./index.html'));
-    } else if (url.startsWith('/chat')) {
-        const parsedUrl = new URL(`http://localhost/${url}`);
-        const { search } = parsedUrl;
+    if ( url === '/health' ) {
+        res.writeHead(200).end('OK');
+    } else if ( url === '/' || url === '/index.html' ) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(fs.readFileSync('./index.html'));
+    } else if( url.startsWith('/chat') ) {
+        const parsesUrl = new URL(`http://localhost/${url}`);
+        const { search } = parsesUrl;
         const question = decodeURIComponent(search.substring(1));
-        console.log('Waiting for Llama...');
-        const answer = await llama(createPrompt(question));
-        console.log('LLama answers:', answer);
-        response.writeHead(200).end(answer);
+        const answer = await llama(question);
+        console.log({ question, answer });
+        res.writeHead(200).end(answer);
     } else {
-        console.error(`${url} is 404!`)
-        response.writeHead(404);
-        response.end();
+        console.error(`${url} is 404`);
+        res.writeHead(404);
+        res.end();
     }
 }
 
-http.createServer(handler).listen(5000);
+http.createServer(handler).listen(3000);

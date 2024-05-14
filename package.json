@@ -1,0 +1,13 @@
+{
+  "name": "llm-for-internal",
+  "version": "1.0.0",
+  "description": "## Running LLM",
+  "main": "pico-jarvis.js",
+  "scripts": {
+    "dev": "node --watch pico-jarvis.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module"
+}
